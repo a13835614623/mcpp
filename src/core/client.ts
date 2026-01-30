@@ -1,6 +1,7 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { ServerConfig } from '../types/config.js';
 import { EventSource } from 'eventsource';
 
@@ -10,7 +11,7 @@ global.EventSource = EventSource;
 
 export class McpClientService {
   private client: Client | null = null;
-  private transport: StdioClientTransport | SSEClientTransport | null = null;
+  private transport: StdioClientTransport | SSEClientTransport | StreamableHTTPClientTransport | null = null;
 
   async connect(config: ServerConfig) {
     try {
@@ -29,6 +30,8 @@ export class McpClientService {
           args: config.args,
           env: env,
         });
+      } else if (config.type === 'http') {
+        this.transport = new StreamableHTTPClientTransport(new URL(config.url));
       } else {
         this.transport = new SSEClientTransport(new URL(config.url));
       }

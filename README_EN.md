@@ -40,6 +40,11 @@ mcpp server add fetch --command uvx --args mcp-server-fetch
 mcpp server add remote-server --type sse --url http://localhost:8000/sse
 ```
 
+**Add a Streamable HTTP server:**
+```bash
+mcpp server add my-http-server --type http --url http://localhost:8000/mcp
+```
+
 **Remove a server:**
 ```bash
 mcpp server remove my-server

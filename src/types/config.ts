@@ -13,6 +13,11 @@ export const ServerConfigSchema = z.union([
     type: z.literal('sse'),
     url: z.string().url(),
   }),
+  z.object({
+    name: z.string(),
+    type: z.literal('http'),
+    url: z.string().url(),
+  }),
 ]);
 
 export const ConfigSchema = z.object({

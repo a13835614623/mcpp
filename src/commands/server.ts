@@ -30,18 +30,18 @@ export const registerServerCommands = (program: Command) => {
 
   serverCmd.command('add <name>')
     .description('Add a new MCP server')
-    .option('--type <type>', 'Server type (stdio or sse)', 'stdio')
+    .option('--type <type>', 'Server type (stdio, sse, or http)', 'stdio')
     .option('--command <command>', 'Command to execute (for stdio)')
     .option('--args [args...]', 'Arguments for the command', [])
-    .option('--url <url>', 'URL for SSE connection')
+    .option('--url <url>', 'URL for SSE/HTTP connection')
     .option('--env <env...>', 'Environment variables (KEY=VALUE)', [])
     .action((name, options) => {
       try {
-        if (options.type === 'sse') {
-          if (!options.url) throw new Error('URL is required for SSE servers');
+        if (options.type === 'sse' || options.type === 'http') {
+          if (!options.url) throw new Error(`URL is required for ${options.type} servers`);
           configManager.addServer({
             name,
-            type: 'sse',
+            type: options.type,
             url: options.url,
           });
         } else {
