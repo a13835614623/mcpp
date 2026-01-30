@@ -3,13 +3,7 @@ import chalk from 'chalk';
 import { configManager } from '../core/config.js';
 
 export const registerServerCommands = (program: Command) => {
-  const serverCmd = program.command('server')
-    .description('Manage MCP servers');
-
-  serverCmd.command('list')
-    .alias('ls')
-    .description('List all configured servers')
-    .action(() => {
+  const listServersAction = () => {
       const servers = configManager.listServers();
       if (servers.length === 0) {
         console.log(chalk.yellow('No servers configured.'));
@@ -26,7 +20,21 @@ export const registerServerCommands = (program: Command) => {
         }
         console.log('');
       });
-    });
+  };
+
+  // Register top-level list command
+  program.command('list')
+    .alias('ls')
+    .description('List all configured servers')
+    .action(listServersAction);
+
+  const serverCmd = program.command('server')
+    .description('Manage MCP servers');
+
+  serverCmd.command('list')
+    .alias('ls')
+    .description('List all configured servers')
+    .action(listServersAction);
 
   serverCmd.command('add <name>')
     .description('Add a new MCP server')
