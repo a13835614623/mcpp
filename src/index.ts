@@ -3,6 +3,7 @@ import { Command } from 'commander';
 import { registerServerCommands } from './commands/server.js';
 import { registerToolsCommand } from './commands/tools.js';
 import { registerCallCommand } from './commands/call.js';
+import { registerDaemonCommand } from './commands/daemon.js';
 
 const program = new Command();
 
@@ -14,5 +15,6 @@ program
 registerServerCommands(program);
 registerToolsCommand(program);
 registerCallCommand(program);
+registerDaemonCommand(program);
 
 program.parse(process.argv);

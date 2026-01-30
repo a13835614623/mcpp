@@ -4,11 +4,17 @@
       "name": "good-server",
       "type": "stdio",
       "command": "echo",
-      "args": ["hello"]
+      "args": [
+        "hello"
+      ]
     },
     {
-      "name": "bad-server",
-      "type": "sse"
+      "name": "my-server",
+      "type": "stdio",
+      "command": "echo",
+      "args": [
+        "Hello Daemon"
+      ]
     }
   ]
 }
