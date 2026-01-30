@@ -39,18 +39,33 @@ export const registerDaemonCommand = (program: Command) => {
         console.log(chalk.gray('Starting daemon in background...'));
         const subprocess = spawn(process.execPath, [process.argv[1], 'daemon', 'start'], {
             detached: true,
-            stdio: 'ignore',
+            // Pipe stdout/stderr so we can see initialization logs
+            stdio: ['ignore', 'pipe', 'pipe'], 
             env: {
                 ...process.env,
                 MCPS_DAEMON_DETACHED: 'true'
             }
         });
+        
+        // Stream logs to current console while waiting for ready
+        if (subprocess.stdout) {
+            subprocess.stdout.on('data', (data) => {
+                process.stdout.write(chalk.gray(`[Daemon] ${data}`));
+            });
+        }
+        if (subprocess.stderr) {
+            subprocess.stderr.on('data', (data) => {
+                process.stderr.write(chalk.red(`[Daemon] ${data}`));
+            });
+        }
+
         subprocess.unref();
         
         // Wait briefly to ensure it started (optional but good UX)
         // We can poll status for a second
         const start = Date.now();
-        while (Date.now() - start < 2000) {
+        // Increased timeout to allow for connection initialization
+        while (Date.now() - start < 10000) { 
             try {
                 const res = await fetch(`http://localhost:${port}/status`);
                 if (res.ok) {
@@ -58,7 +73,7 @@ export const registerDaemonCommand = (program: Command) => {
                     process.exit(0);
                 }
             } catch {}
-            await new Promise(r => setTimeout(r, 100));
+            await new Promise(r => setTimeout(r, 200));
         }
         console.log(chalk.yellow('Daemon started (async check timeout, but likely running).'));
       }
@@ -235,10 +250,9 @@ const startDaemon = (port: number) => {
         res.end();
       });
 
-      server.listen(port, () => {
-        // Only log if not detached (i.e. running in foreground for debugging)
-        // or we can just log to stdout which is ignored in detached mode
-        // console.log(chalk.green(`Daemon started on port ${port}`));
+      server.listen(port, async () => {
+        // Initialize all connections eagerly
+        await connectionPool.initializeAll();
       });
       
       server.on('error', (e: any) => {

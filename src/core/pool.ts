@@ -48,6 +48,22 @@ export class ConnectionPool {
     this.clients.clear();
   }
 
+  async initializeAll() {
+    const servers = configManager.listServers();
+    if (servers.length === 0) return;
+
+    console.log('[Daemon] Initializing connections...');
+    for (const server of servers) {
+        try {
+            await this.getClient(server.name);
+            console.log(`[Daemon] Connected to ${server.name}`);
+        } catch (error: any) {
+            console.error(`[Daemon] Failed to connect to ${server.name}:`, error.message);
+        }
+    }
+    console.log('[Daemon] Initialization complete.');
+  }
+
   async getActiveConnectionDetails(): Promise<{ name: string, toolsCount: number | null, status: string }[]> {
     const details = [];
     for (const [name, client] of this.clients) {
