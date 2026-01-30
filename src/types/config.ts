@@ -3,9 +3,9 @@ import { z } from 'zod';
 export const ServerConfigSchema = z.union([
   z.object({
     name: z.string(),
-    type: z.literal('stdio'),
+    type: z.literal('stdio').optional().default('stdio'),
     command: z.string(),
-    args: z.array(z.string()).default([]),
+    args: z.array(z.string()).optional().default([]),
     env: z.record(z.string()).optional(),
   }).passthrough(),
   z.object({

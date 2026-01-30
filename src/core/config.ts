@@ -36,9 +36,10 @@ export class ConfigManager {
       if (Array.isArray(json.servers)) {
           servers = json.servers;
       } else if (json.mcpServers && typeof json.mcpServers === 'object') {
-          // Convert map to array
+          // Convert map to array and add default type='stdio' if missing
           servers = Object.entries(json.mcpServers).map(([name, config]: [string, any]) => ({
               name,
+              type: config.type || (config.command ? 'stdio' : undefined), // Auto-detect type
               ...config
           }));
       }
