@@ -134,6 +134,33 @@ const startDaemon = (port: number) => {
           return;
         }
 
+        if (req.method === 'POST' && req.url === '/list') {
+          let body = '';
+          req.on('data', chunk => { body += chunk.toString(); });
+          req.on('end', async () => {
+            try {
+              const { server: serverName } = JSON.parse(body);
+              
+              if (!serverName) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Missing server name' }));
+                return;
+              }
+
+              const client = await connectionPool.getClient(serverName);
+              const tools = await client.listTools();
+
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ tools }));
+            } catch (error: any) {
+              console.error(`[Daemon] Error listing tools:`, error);
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: error.message }));
+            }
+          });
+          return;
+        }
+
         res.writeHead(404);
         res.end();
       });
