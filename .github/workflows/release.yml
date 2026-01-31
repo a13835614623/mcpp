@@ -5,16 +5,15 @@ on:
     types: [closed]
     branches: [main]
 
+permissions:
+  id-token: write  # Required for OIDC
+  contents: read
+
 jobs:
   release:
     runs-on: ubuntu-latest
     # 只有当 PR 被合并时才运行
     if: github.event.pull_request.merged == true && !contains(github.event.pull_request.title, '[skip release]')
-    
-    # OIDC 权限配置（Trusted Publisher 必需）
-    permissions:
-      id-token: write  # Required for OIDC
-      contents: read
 
     steps:
       - name: Checkout code
@@ -23,12 +22,12 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'  # Node 22 自带 npm 10.9+，但 Trusted Publisher 需要 npm 11.5.1+
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
           cache: 'npm'
-          # 注意：使用 Trusted Publisher 时不需要 registry-url 和 NODE_AUTH_TOKEN
 
       - name: Update npm to latest
-        run: npm install -g npm@latest  # 确保使用支持 Trusted Publisher 的 npm 版本
+        run: npm install -g npm@latest
 
       - name: Check npm version
         run: npm --version
@@ -63,9 +62,8 @@ jobs:
 
       - name: Publish to npm
         if: steps.version.outputs.should_publish == 'true'
-        # Trusted Publisher: npm CLI 自动检测 OIDC 环境，无需 NODE_AUTH_TOKEN
         run: npm publish --provenance
-        # 注意：不需要 env.NODE_AUTH_TOKEN
+        # 注意：不需要 NODE_AUTH_TOKEN，Trusted Publisher 自动处理认证
 
       - name: Create GitHub Release
         if: steps.version.outputs.should_publish == 'true'
