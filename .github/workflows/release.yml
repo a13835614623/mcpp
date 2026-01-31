@@ -62,7 +62,16 @@ jobs:
 
       - name: Publish to npm
         if: steps.version.outputs.should_publish == 'true'
-        run: npm publish --provenance
+        run: |
+          # 检测是否为预发布版本（包含 - 的版本号，如 1.0.0-beta.0）
+          VERSION="${{ steps.version.outputs.version }}"
+          if [[ "$VERSION" =~ -[a-zA-Z] ]]; then
+            echo "Publishing prerelease version $VERSION with tag 'beta'"
+            npm publish --provenance --tag beta
+          else
+            echo "Publishing stable version $VERSION"
+            npm publish --provenance
+          fi
         # 注意：不需要 NODE_AUTH_TOKEN，Trusted Publisher 自动处理认证
 
       - name: Create GitHub Release
