@@ -62,9 +62,14 @@ export class ConnectionPool {
     this.initializing = true;
     this.initialized = false;
 
+    const verbose = process.env.MCPS_VERBOSE === 'true';
+
     // 过滤掉 disabled 的服务器
     const enabledServers = servers.filter(server => {
       const disabled = (server as any).disabled === true;
+      if (verbose && disabled) {
+        console.log(`[Daemon] Skipping disabled server: ${server.name}`);
+      }
       return !disabled;
     });
 
@@ -77,12 +82,23 @@ export class ConnectionPool {
 
     console.log(`[Daemon] Connecting to ${enabledServers.length} server(s)...`);
     const results: { name: string; success: boolean; error?: string }[] = [];
+
     for (const server of enabledServers) {
+        if (verbose) {
+            process.stdout.write(`[Daemon] - ${server.name}... `);
+        }
         try {
             await this.getClient(server.name, { timeoutMs: 8000 });
             results.push({ name: server.name, success: true });
+            if (verbose) {
+                console.log('✓');
+            }
         } catch (error: any) {
             results.push({ name: server.name, success: false, error: error.message });
+            if (verbose) {
+                console.log('✗');
+                console.error(`[Daemon] Error: ${error.message}`);
+            }
         }
     }
 
@@ -90,11 +106,13 @@ export class ConnectionPool {
     const successCount = results.filter(r => r.success).length;
     const failed = results.filter(r => !r.success);
     console.log(`[Daemon] Connected: ${successCount}/${enabledServers.length}`);
-    if (failed.length > 0) {
+
+    if (!verbose && failed.length > 0) {
         failed.forEach(f => {
             console.error(`[Daemon] ✗ ${f.name}: ${f.error}`);
         });
     }
+
     this.initializing = false;
     this.initialized = true;
   }

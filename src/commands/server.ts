@@ -4,23 +4,73 @@ import { configManager } from '../core/config.js';
 import { DaemonClient } from '../core/daemon-client.js';
 
 export const registerServerCommands = (program: Command) => {
-  const listServersAction = () => {
+  const listServersAction = async () => {
       const servers = configManager.listServers();
       if (servers.length === 0) {
         console.log(chalk.yellow('No servers configured.'));
         return;
       }
-      console.log(chalk.bold('\nConfigured Servers:'));
-      servers.forEach(s => {
-        console.log(`- ${chalk.cyan(s.name)} [${chalk.magenta(s.type)}]`);
-        if (s.type === 'stdio') {
-          console.log(`  Command: ${s.command} ${s.args.join(' ')}`);
-          if (s.env) console.log(`  Env: ${Object.keys(s.env).join(', ')}`);
-        } else {
-          console.log(`  URL: ${s.url}`);
-        }
-        console.log('');
+
+      // Get connection status from daemon if running
+      let connectionStatus: Map<string, { status: string; toolsCount: number | null }> = new Map();
+      try {
+          const port = parseInt(process.env.MCPS_PORT || '4100');
+          const res = await fetch(`http://localhost:${port}/status`);
+          if (res.ok) {
+              const data = await res.json();
+              if (data.connections) {
+                  data.connections.forEach((conn: any) => {
+                      const status = conn.status === 'error' ? 'Error' : 'Connected';
+                      connectionStatus.set(conn.name, {
+                          status,
+                          toolsCount: conn.toolsCount
+                      });
+                  });
+              }
+          }
+      } catch {
+          // Daemon not running, that's ok
+      }
+
+      // Build table rows
+      const rows = servers.map(server => {
+          const disabled = (server as any).disabled === true;
+          const serverStatus = disabled ? 'Disabled' :
+                        (connectionStatus.get(server.name)?.status || 'Not Connected');
+          const toolsCount = disabled ? '-' :
+                           (connectionStatus.get(server.name)?.toolsCount ?? '-');
+          const typeColor = server.type === 'stdio' ? chalk.magenta : chalk.yellow;
+          const statusColor = serverStatus === 'Connected' ? chalk.green :
+                             serverStatus === 'Error' ? chalk.red :
+                             serverStatus === 'Disabled' ? chalk.gray : chalk.yellow;
+
+          return {
+              name: server.name,
+              type: typeColor(server.type),
+              status: statusColor(serverStatus),
+              tools: toolsCount === null ? '-' : toolsCount,
+              plainStatus: serverStatus
+          };
       });
+
+      // Calculate column widths
+      const nameWidth = Math.max(4, ...rows.map(r => r.name.length));
+      const typeWidth = 6;
+      const statusWidth = Math.max(8, ...rows.map(r => r.status.length));
+      const toolsWidth = 6;
+
+      // Print table header
+      console.log('');
+      console.log(chalk.bold(`${'NAME'.padEnd(nameWidth)}  ${'TYPE'.padEnd(typeWidth)}  ${'STATUS'.padEnd(statusWidth)}  ${'TOOLS'}`));
+      console.log(chalk.gray('─'.repeat(nameWidth) + '  ' + '─'.repeat(typeWidth) + '  ' + '─'.repeat(statusWidth) + '  ' + '─'.repeat(toolsWidth)));
+
+      // Print table rows
+      rows.forEach(row => {
+          const statusStr = String(row.status).padEnd(statusWidth);
+          console.log(`${row.name.padEnd(nameWidth)}  ${String(row.type).padEnd(typeWidth)}  ${statusStr}  ${String(row.tools)}`);
+      });
+
+      console.log('');
   };
 
   const addServerAction = (name: string, options: any) => {

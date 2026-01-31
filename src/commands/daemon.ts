@@ -68,7 +68,8 @@ const startAction = async (options: any) => {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: {
           ...process.env,
-          MCPS_DAEMON_DETACHED: 'true'
+          MCPS_DAEMON_DETACHED: 'true',
+          MCPS_VERBOSE: options.verbose ? 'true' : 'false'
       }
   });
 
@@ -177,6 +178,7 @@ export const registerDaemonCommand = (program: Command) => {
   program.command('start')
     .description('Start the daemon')
     .option('-p, --port <number>', 'Daemon port', String(DAEMON_PORT))
+    .option('-v, --verbose', 'Show detailed logs')
     .action((options) => startAction(options));
 
   program.command('stop')
