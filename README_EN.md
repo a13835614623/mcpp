@@ -25,11 +25,7 @@ mcps supports a daemon mode that maintains persistent connections to MCP servers
 
 **Start Daemon:**
 ```bash
-mcps daemon
-```
-or
-```bash
-mcps daemon start
+mcps start
 ```
 
 **Restart Connections:**
@@ -37,49 +33,65 @@ If you update the configuration or a server behaves unexpectedly, you can refres
 
 ```bash
 # Reset all connections
-mcps daemon restart
+mcps restart
 
 # Reset connection for a specific server
-mcps daemon restart my-server
+mcps restart my-server
 ```
 
 **Stop Daemon:**
 ```bash
-mcps daemon stop
+mcps stop
 ```
+
+**Check Daemon Status:**
+```bash
+mcps status
+```
+
+> **Note**: Legacy three-word commands (e.g., `mcps daemon start`) are still supported for backward compatibility.
 
 ### 2. Server Management
 
 **List all servers:**
 ```bash
-mcps server list
+mcps ls
 ```
 
 **Add a Stdio server:**
 ```bash
 # Add a local Node.js server
-mcps server add my-server --command node --args ./build/index.js
+mcps add my-server --command node --args ./build/index.js
 
 # Add a server using npx/uvx
-mcps server add fetch --command uvx --args mcp-server-fetch
+mcps add fetch --command uvx --args mcp-server-fetch
 ```
 
 **Add an SSE server:**
 ```bash
-mcps server add remote-server --type sse --url http://localhost:8000/sse
+mcps add remote-server --type sse --url http://localhost:8000/sse
 ```
 
 **Add a Streamable HTTP server:**
 ```bash
-mcps server add my-http-server --type http --url http://localhost:8000/mcp
+mcps add my-http-server --type http --url http://localhost:8000/mcp
 ```
 
 **Remove a server:**
 ```bash
-mcps server remove my-server
+mcps rm my-server
 ```
 
-### 2. Tool Interaction
+**Update a server:**
+```bash
+# Update command
+mcps update my-server --command new-command
+
+# Update arguments
+mcps update my-server --args arg1 arg2
+```
+
+### 3. Tool Interaction
 
 **List tools available on a server:**
 ```bash

@@ -30,157 +30,189 @@ function isPortInUse(port: number): Promise<boolean> {
   });
 }
 
-export const registerDaemonCommand = (program: Command) => {
-  const daemonCmd = program.command('daemon')
-    .description('Manage the mcps daemon')
-    .usage('start|stop|restart|status')
-    .option('-p, --port <number>', 'Daemon port', String(DAEMON_PORT)); // Global port option
+// Action functions for daemon commands
+const startAction = async (options: any, parentCmd: Command) => {
+  const port = parseInt(options.port || DAEMON_PORT);
 
-  daemonCmd.command('start', { isDefault: true, hidden: true }) // Hide default start from help but keep functionality
-    .description('Start the daemon (default)')
-    .action(async (options) => {
-      // Get port from parent command options
-      const port = parseInt(daemonCmd.opts().port || DAEMON_PORT);
-
-      // Check if port is in use (more reliable than HTTP check)
-      const portInUse = await isPortInUse(port);
-      if (portInUse) {
-        // Try to check if it's our daemon via HTTP
-        try {
-          const res = await fetch(`http://localhost:${port}/status`);
-          if (res.ok) {
-            console.log(chalk.yellow(`Daemon is already running on port ${port}.`));
-            process.exit(0);
-            return;
-          }
-        } catch {
-          // Port is in use but not our daemon
-          console.error(chalk.red(`Port ${port} is already in use by another process.`));
-          process.exit(1);
-          return;
-        }
+  // Check if port is in use (more reliable than HTTP check)
+  const portInUse = await isPortInUse(port);
+  if (portInUse) {
+    // Try to check if it's our daemon via HTTP
+    try {
+      const res = await fetch(`http://localhost:${port}/status`);
+      if (res.ok) {
+        console.log(chalk.yellow(`Daemon is already running on port ${port}.`));
+        process.exit(0);
+        return;
       }
+    } catch {
+      // Port is in use but not our daemon
+      console.error(chalk.red(`Port ${port} is already in use by another process.`));
+      process.exit(1);
+      return;
+    }
+  }
 
-      // If we are already detached (indicated by env var), run the server
-      if (process.env.MCPS_DAEMON_DETACHED === 'true') {
-           startDaemon(port);
-           return;
+  // If we are already detached (indicated by env var), run the server
+  if (process.env.MCPS_DAEMON_DETACHED === 'true') {
+       startDaemon(port);
+       return;
+  }
+
+  // Otherwise, spawn a detached process
+  console.log(chalk.gray('Starting daemon in background...'));
+  let childFailed = false;
+  const subprocess = spawn(process.execPath, [process.argv[1], 'daemon', 'start'], {
+      detached: true,
+      // Pipe stdout/stderr so we can see initialization logs
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: {
+          ...process.env,
+          MCPS_DAEMON_DETACHED: 'true'
       }
+  });
 
-      // Otherwise, spawn a detached process
-      console.log(chalk.gray('Starting daemon in background...'));
-      let childFailed = false;
-      const subprocess = spawn(process.execPath, [process.argv[1], 'daemon', 'start'], {
-          detached: true,
-          // Pipe stdout/stderr so we can see initialization logs
-          stdio: ['ignore', 'pipe', 'pipe'],
-          env: {
-              ...process.env,
-              MCPS_DAEMON_DETACHED: 'true'
+  // Stream logs to current console while waiting for ready
+  if (subprocess.stdout) {
+      subprocess.stdout.on('data', (data) => {
+          process.stdout.write(chalk.gray(`[Daemon] ${data}`));
+      });
+  }
+  if (subprocess.stderr) {
+      subprocess.stderr.on('data', (data) => {
+          const msg = data.toString();
+          process.stderr.write(chalk.red(`[Daemon] ${msg}`));
+          // Detect port conflict in child process
+          if (msg.includes('Port') && msg.includes('is already in use')) {
+              childFailed = true;
           }
       });
+  }
 
-      // Stream logs to current console while waiting for ready
-      if (subprocess.stdout) {
-          subprocess.stdout.on('data', (data) => {
-              process.stdout.write(chalk.gray(`[Daemon] ${data}`));
-          });
+  subprocess.unref();
+
+  // Wait briefly to ensure it started (optional but good UX)
+  // We can poll status for a second
+  const start = Date.now();
+  // Increased timeout to allow for connection initialization
+  while (Date.now() - start < 10000) {
+      // If child reported port conflict, check if daemon is actually running
+      if (childFailed) {
+          const stillRunning = await isPortInUse(port);
+          if (stillRunning) {
+              // Another daemon is running
+              console.log(chalk.yellow(`\nDaemon is already running on port ${port}.`));
+              process.exit(0);
+              return;
+          }
       }
-      if (subprocess.stderr) {
-          subprocess.stderr.on('data', (data) => {
-              const msg = data.toString();
-              process.stderr.write(chalk.red(`[Daemon] ${msg}`));
-              // Detect port conflict in child process
-              if (msg.includes('Port') && msg.includes('is already in use')) {
-                  childFailed = true;
-              }
-          });
-      }
 
-      subprocess.unref();
-
-      // Wait briefly to ensure it started (optional but good UX)
-      // We can poll status for a second
-      const start = Date.now();
-      // Increased timeout to allow for connection initialization
-      while (Date.now() - start < 10000) {
-          // If child reported port conflict, check if daemon is actually running
-          if (childFailed) {
-              const stillRunning = await isPortInUse(port);
-              if (stillRunning) {
-                  // Another daemon is running
-                  console.log(chalk.yellow(`\nDaemon is already running on port ${port}.`));
+      try {
+          const res = await fetch(`http://localhost:${port}/status`);
+          if (res.ok) {
+              const data = await res.json();
+              if (data.initialized) {
+                  console.log(chalk.green(`Daemon started successfully on port ${port}.`));
                   process.exit(0);
-                  return;
               }
           }
+      } catch {}
+      await new Promise(r => setTimeout(r, 200));
+  }
+  console.log(chalk.yellow('Daemon started (async check timeout, but likely running).'));
+  process.exit(0);
+};
 
-          try {
-              const res = await fetch(`http://localhost:${port}/status`);
-              if (res.ok) {
-                  const data = await res.json();
-                  if (data.initialized) {
-                      console.log(chalk.green(`Daemon started successfully on port ${port}.`));
-                      process.exit(0);
-                  }
-              }
-          } catch {}
-          await new Promise(r => setTimeout(r, 200));
-      }
-      console.log(chalk.yellow('Daemon started (async check timeout, but likely running).'));
-      process.exit(0);
-    });
+const stopAction = async (parentCmd: Command) => {
+   try {
+     const port = parseInt(parentCmd.opts().port || DAEMON_PORT);
+     await fetch(`http://localhost:${port}/stop`, { method: 'POST' });
+     console.log(chalk.green('Daemon stopped successfully.'));
+   } catch (e) {
+     console.error(chalk.red('Failed to stop daemon. Is it running?'));
+   }
+};
+
+const statusAction = async (parentCmd: Command) => {
+   try {
+     const port = parseInt(parentCmd.opts().port || DAEMON_PORT);
+     const res = await fetch(`http://localhost:${port}/status`);
+     const data = await res.json();
+     console.log(chalk.green(`Daemon is running (v${data.version})`));
+     if (data.connections && data.connections.length > 0) {
+        console.log(chalk.bold('\nActive Connections:'));
+        data.connections.forEach((conn: any) => {
+            const count = conn.toolsCount !== null ? `(${conn.toolsCount} tools)` : (data.initializing ? '(initializing)' : '(error listing tools)');
+            const status = conn.status === 'error' ? chalk.red('[Error]') : '';
+            console.log(chalk.cyan(`- ${conn.name} ${chalk.gray(count)} ${status}`));
+        });
+     } else {
+         console.log(chalk.gray('No active connections.'));
+     }
+   } catch (e) {
+     console.error(chalk.red('Daemon is not running.'));
+   }
+};
+
+const restartAction = async (serverName: string | undefined, parentCmd: Command) => {
+   try {
+     const port = parseInt(parentCmd.opts().port || DAEMON_PORT);
+     const res = await fetch(`http://localhost:${port}/restart`, {
+        method: 'POST',
+        body: JSON.stringify({ server: serverName })
+     });
+     const data = await res.json();
+     console.log(chalk.green(data.message));
+   } catch (e) {
+     console.error(chalk.red('Failed to restart. Is the daemon running?'));
+   }
+};
+
+export const registerDaemonCommand = (program: Command) => {
+  // ===== Top-level commands (new, simplified) =====
+
+  program.command('start')
+    .description('Start the daemon')
+    .option('-p, --port <number>', 'Daemon port', String(DAEMON_PORT))
+    .action((options) => startAction(options, program));
+
+  program.command('stop')
+    .description('Stop the daemon')
+    .option('-p, --port <number>', 'Daemon port', String(DAEMON_PORT))
+    .action(() => stopAction(program));
+
+  program.command('status')
+    .description('Check daemon status')
+    .option('-p, --port <number>', 'Daemon port', String(DAEMON_PORT))
+    .action(() => statusAction(program));
+
+  program.command('restart [server]')
+    .description('Restart the daemon or a specific server connection')
+    .option('-p, --port <number>', 'Daemon port', String(DAEMON_PORT))
+    .action((serverName) => restartAction(serverName, program));
+
+  // ===== Legacy daemon subcommands (for backward compatibility) =====
+
+  const daemonCmd = program.command('daemon')
+    .description('Manage the mcps daemon (legacy, use top-level commands)')
+    .usage('start|stop|restart|status')
+    .option('-p, --port <number>', 'Daemon port', String(DAEMON_PORT));
+
+  daemonCmd.command('start', { isDefault: true, hidden: true })
+    .description('Start the daemon (default)')
+    .action((options) => startAction(options, daemonCmd));
 
   daemonCmd.command('stop')
     .description('Stop the running daemon')
-    .action(async () => {
-       try {
-         const port = parseInt(daemonCmd.opts().port || DAEMON_PORT);
-         await fetch(`http://localhost:${port}/stop`, { method: 'POST' });
-         console.log(chalk.green('Daemon stopped successfully.'));
-       } catch (e) {
-         console.error(chalk.red('Failed to stop daemon. Is it running?'));
-       }
-    });
+    .action(() => stopAction(daemonCmd));
 
   daemonCmd.command('status')
     .description('Check daemon status')
-    .action(async () => {
-       try {
-         const port = parseInt(daemonCmd.opts().port || DAEMON_PORT);
-         const res = await fetch(`http://localhost:${port}/status`);
-         const data = await res.json();
-         console.log(chalk.green(`Daemon is running (v${data.version})`));
-         if (data.connections && data.connections.length > 0) {
-            console.log(chalk.bold('\nActive Connections:'));
-            data.connections.forEach((conn: any) => {
-                const count = conn.toolsCount !== null ? `(${conn.toolsCount} tools)` : (data.initializing ? '(initializing)' : '(error listing tools)');
-                const status = conn.status === 'error' ? chalk.red('[Error]') : '';
-                console.log(chalk.cyan(`- ${conn.name} ${chalk.gray(count)} ${status}`));
-            });
-         } else {
-             console.log(chalk.gray('No active connections.'));
-         }
-       } catch (e) {
-         console.error(chalk.red('Daemon is not running.'));
-       }
-    });
+    .action(() => statusAction(daemonCmd));
 
   daemonCmd.command('restart [server]')
     .description('Restart the daemon or a specific server connection')
-    .action(async (serverName) => {
-       try {
-         const port = parseInt(daemonCmd.opts().port || DAEMON_PORT);
-         const res = await fetch(`http://localhost:${port}/restart`, {
-            method: 'POST',
-            body: JSON.stringify({ server: serverName })
-         });
-         const data = await res.json();
-         console.log(chalk.green(data.message));
-       } catch (e) {
-         console.error(chalk.red('Failed to restart. Is the daemon running?'));
-       }
-    });
+    .action((serverName) => restartAction(serverName, daemonCmd));
 };
 
 const startDaemon = (port: number) => {

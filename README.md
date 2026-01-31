@@ -25,11 +25,7 @@ mcps 支持守护进程模式，可以保持与 MCP 服务的长连接，显著�
 
 **启动守护进程：**
 ```bash
-mcps daemon
-```
-或者
-```bash
-mcps daemon start
+mcps start
 ```
 
 **重启连接：**
@@ -37,49 +33,65 @@ mcps daemon start
 
 ```bash
 # 重置所有连接
-mcps daemon restart
+mcps restart
 
 # 仅重置特定服务的连接
-mcps daemon restart my-server
+mcps restart my-server
 ```
 
 **停止守护进程：**
 ```bash
-mcps daemon stop
+mcps stop
 ```
+
+**查看守护进程状态：**
+```bash
+mcps status
+```
+
+> **注意**：旧的三词命令（如 `mcps daemon start`）仍然可用，保持向后兼容。
 
 ### 2. 服务管理 (Server Management)
 
 **查看所有服务：**
 ```bash
-mcps server list
+mcps ls
 ```
 
 **添加 Stdio 服务：**
 ```bash
 # 添加本地 Node.js 服务
-mcps server add my-server --command node --args ./build/index.js
+mcps add my-server --command node --args ./build/index.js
 
 # 使用 npx/uvx 添加服务
-mcps server add fetch --command uvx --args mcp-server-fetch
+mcps add fetch --command uvx --args mcp-server-fetch
 ```
 
 **添加 SSE 服务：**
 ```bash
-mcps server add remote-server --type sse --url http://localhost:8000/sse
+mcps add remote-server --type sse --url http://localhost:8000/sse
 ```
 
 **添加 Streamable HTTP 服务：**
 ```bash
-mcps server add my-http-server --type http --url http://localhost:8000/mcp
+mcps add my-http-server --type http --url http://localhost:8000/mcp
 ```
 
 **移除服务：**
 ```bash
-mcps server remove my-server
+mcps rm my-server
 ```
 
-### 2. 工具交互 (Tool Interaction)
+**更新服务：**
+```bash
+# 更新命令
+mcps update my-server --command new-command
+
+# 更新参数
+mcps update my-server --args arg1 arg2
+```
+
+### 3. 工具交互 (Tool Interaction)
 
 **查看服务下的可用工具：**
 ```bash
