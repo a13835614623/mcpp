@@ -4,6 +4,7 @@ import { ServerConfig } from '../types/config.js';
 
 export class ConnectionPool {
   private clients: Map<string, McpClientService> = new Map();
+  private toolsCache: Map<string, number> = new Map();
   private initializing = false;
   private initialized = false;
 
@@ -28,6 +29,16 @@ export class ConnectionPool {
       await connectPromise;
     }
     this.clients.set(serverName, client);
+
+    // Cache tools count after connection
+    try {
+      const result = await client.listTools();
+      this.toolsCache.set(serverName, result.tools.length);
+    } catch (e) {
+      // Connection succeeded but listTools failed, cache as 0
+      this.toolsCache.set(serverName, 0);
+    }
+
     return client;
   }
 
@@ -40,6 +51,7 @@ export class ConnectionPool {
         console.error(`[Daemon] Error closing ${serverName}:`, e);
       }
       this.clients.delete(serverName);
+      this.toolsCache.delete(serverName);
       return true;
     }
     return false;
@@ -55,6 +67,7 @@ export class ConnectionPool {
       }
     }
     this.clients.clear();
+    this.toolsCache.clear();
   }
 
   async initializeAll() {
@@ -126,14 +139,23 @@ export class ConnectionPool {
     for (const [name, client] of this.clients) {
       let toolsCount = null;
       let status = 'connected';
+
       if (includeTools) {
-        try {
-          const result = await client.listTools();
-          toolsCount = result.tools.length;
-        } catch (e) {
-          status = 'error';
+        // Use cached tools count instead of calling listTools again
+        if (this.toolsCache.has(name)) {
+          toolsCount = this.toolsCache.get(name)!;
+        } else {
+          // Fallback: if not cached, fetch it now
+          try {
+            const result = await client.listTools();
+            toolsCount = result.tools.length;
+            this.toolsCache.set(name, toolsCount);
+          } catch (e) {
+            status = 'error';
+          }
         }
       }
+
       details.push({ name, toolsCount, status });
     }
     return details;
