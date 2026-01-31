@@ -73,7 +73,7 @@ export class DaemonClient {
     }
 
     const data = await response.json();
-    // The daemon returns { tools: { tools: [...] } } because of ListToolsResult wrapping
-    return data.tools.tools || [];
+    // The daemon returns { tools: [...] }
+    return data.tools || [];
   }
 }
