@@ -125,7 +125,7 @@ export class McpClientService {
       await this.client.connect(this.transport);
 
       // 连接成功后，立即查找并保存子进程 PID
-      if (config.type === 'stdio') {
+      if ('command' in config) {
         await this.recordChildPids();
       }
     } catch (error) {
@@ -179,6 +179,11 @@ export class McpClientService {
       // 过滤出匹配我们命令的进程
       const commandBaseName = this.serverCommand.split('/').pop() || this.serverCommand;
 
+      const verbose = process.env.MCPS_VERBOSE === 'true';
+      if (verbose) {
+        log(`[Daemon] ${this.serverName}: Found ${newPids.size} new PIDs: [${Array.from(newPids).join(', ')}]`);
+      }
+
       for (const pid of newPids) {
         try {
           const { stdout: cmdOutput } = await execAsync(`ps -p ${pid} -o command=`);
@@ -195,11 +200,17 @@ export class McpClientService {
 
           if (isMatch) {
             this.childPids.add(pid);
-            // 调试日志已移除
+            if (verbose) {
+              log(`[Daemon] ${this.serverName}: Added PID ${pid} to childPids (cmd: ${cmdLine.substring(0, 50)}...)`);
+            }
           }
         } catch {
           // 进程可能已经不存在了
         }
+      }
+
+      if (verbose) {
+        log(`[Daemon] ${this.serverName}: Total childPids after collection: ${this.childPids.size}`);
       }
     } catch (e) {
       // 记录失败，不影响主流程
@@ -221,25 +232,45 @@ export class McpClientService {
   }
 
   close() {
+    const verbose = process.env.MCPS_VERBOSE === 'true';
+
     // 对于 stdio 类型的服务器，先杀掉子进程（在关闭 transport 之前）
     if (this.serverType === 'stdio' && this.childPids.size > 0) {
-      log(`[Daemon] Closing ${this.serverName}, killing ${this.childPids.size} child process(es)...`);
+      const pidList = Array.from(this.childPids).join(', ');
+      if (verbose) {
+        log(`[Daemon] Closing ${this.serverName}, killing PIDs: [${pidList}]`);
+      } else {
+        // 简短版本，始终显示
+        log(`[Daemon] Closing ${this.serverName} (${this.childPids.size} process(es))`);
+      }
 
       // 直接使用 SIGKILL，确保进程被终止
       for (const pid of this.childPids) {
         try {
           process.kill(pid, 'SIGKILL');
-          log(`[Daemon] SIGKILLED child process ${pid} (${this.serverName})`);
-        } catch (e) {
-          log(`[Daemon] Failed to kill ${pid}: ${e}`);
+          if (verbose) {
+            log(`[Daemon] SIGKILLED child process ${pid} (${this.serverName})`);
+          }
+        } catch (e: any) {
+          if (verbose) {
+            log(`[Daemon] Failed to kill ${pid}: ${e.message}`);
+          }
         }
       }
 
       this.childPids.clear();
-      log(`[Daemon] All child processes cleared for ${this.serverName}`);
+      if (verbose) {
+        log(`[Daemon] All child processes cleared for ${this.serverName}`);
+      }
+    } else {
+      if (verbose) {
+        log(`[Daemon] No child PIDs to kill for ${this.serverName} (childPids.size: ${this.childPids.size})`);
+      }
     }
 
     // 暂时不关闭 transport，避免卡住
-    log(`[Daemon] ${this.serverName} close() completed`);
+    if (verbose) {
+      log(`[Daemon] ${this.serverName} close() completed`);
+    }
   }
 }
