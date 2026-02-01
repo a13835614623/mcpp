@@ -30,91 +30,92 @@ describe('ConfigManager', () => {
 
   describe('addServer', () => {
     it('should add a stdio server', () => {
-      const server = {
-        name: 'test-stdio',
-        type: 'stdio' as const,
+      const serverName = 'test-stdio';
+      const serverConfig = {
         command: 'node',
         args: ['--version']
       };
 
-      manager.addServer(server);
+      manager.addServer(serverName, serverConfig);
       const servers = manager.listServers();
 
       expect(servers).toHaveLength(1);
-      expect(servers[0]).toMatchObject(server);
+      expect(servers[0].name).toBe(serverName);
+      expect(servers[0].command).toBe('node');
+      expect(servers[0].args).toEqual(['--version']);
     });
 
     it('should add an sse server', () => {
-      const server = {
-        name: 'test-sse',
-        type: 'sse' as const,
+      const serverName = 'test-sse';
+      const serverConfig = {
         url: 'http://localhost:3000/sse'
       };
 
-      manager.addServer(server);
+      manager.addServer(serverName, serverConfig);
       const retrieved = manager.getServer('test-sse');
 
-      expect(retrieved).toMatchObject(server);
+      expect(retrieved).toBeDefined();
+      expect(retrieved!.name).toBe(serverName);
+      expect(retrieved!.url).toBe('http://localhost:3000/sse');
     });
 
     it('should add an http server', () => {
-      const server = {
-        name: 'test-http',
-        type: 'http' as const,
+      const serverName = 'test-http';
+      const serverConfig = {
         url: 'http://localhost:3000/mcp'
       };
 
-      manager.addServer(server);
+      manager.addServer(serverName, serverConfig);
       const retrieved = manager.getServer('test-http');
 
-      expect(retrieved).toMatchObject(server);
+      expect(retrieved).toBeDefined();
+      expect(retrieved!.name).toBe(serverName);
+      expect(retrieved!.url).toBe('http://localhost:3000/mcp');
     });
 
     it('should add server with disabled flag', () => {
-      const server = {
-        name: 'disabled-server',
-        type: 'stdio' as const,
+      const serverName = 'disabled-server';
+      const serverConfig = {
         command: 'node',
-        args: [],
+        args: [] as string[],
         disabled: true
       };
 
-      manager.addServer(server);
+      manager.addServer(serverName, serverConfig);
       const retrieved = manager.getServer('disabled-server');
 
-      expect(retrieved).toMatchObject({
-        name: 'disabled-server',
-        disabled: true
-      });
+      expect(retrieved).toBeDefined();
+      expect(retrieved!.name).toBe('disabled-server');
+      expect((retrieved as any).disabled).toBe(true);
     });
 
     it('should throw error when adding duplicate server', () => {
-      const server = {
-        name: 'duplicate',
-        type: 'stdio' as const,
+      const serverName = 'duplicate';
+      const serverConfig = {
         command: 'node',
-        args: []
+        args: [] as string[]
       };
 
-      manager.addServer(server);
+      manager.addServer(serverName, serverConfig);
 
-      expect(() => manager.addServer(server)).toThrow('already exists');
+      expect(() => manager.addServer(serverName, serverConfig)).toThrow('already exists');
     });
   });
 
   describe('getServer', () => {
     it('should retrieve existing server', () => {
-      const server = {
-        name: 'to-retrieve',
-        type: 'stdio' as const,
+      const serverName = 'to-retrieve';
+      const serverConfig = {
         command: 'node',
-        args: []
+        args: [] as string[]
       };
 
-      manager.addServer(server);
+      manager.addServer(serverName, serverConfig);
       const retrieved = manager.getServer('to-retrieve');
 
-      expect(retrieved).toMatchObject(server);
+      expect(retrieved).toBeDefined();
+      expect(retrieved!.name).toBe(serverName);
+      expect((retrieved as any).command).toBe('node');
     });
 
     it('should return undefined for non-existing server', () => {
@@ -132,22 +133,16 @@ describe('ConfigManager', () => {
     });
 
     it('should return all servers including disabled ones', () => {
-      const server1 = {
-        name: 'server-1',
-        type: 'stdio' as const,
+      manager.addServer('server-1', {
         command: 'node',
         args: []
-      };
-      const server2 = {
-        name: 'server-2',
-        type: 'stdio' as const,
+      });
+      manager.addServer('server-2', {
         command: 'npm',
         args: ['start'],
         disabled: true
-      };
+      });
 
-      manager.addServer(server1);
-      manager.addServer(server2);
       const servers = manager.listServers();
 
       expect(servers).toHaveLength(2);
@@ -156,14 +151,10 @@ describe('ConfigManager', () => {
 
   describe('removeServer', () => {
     it('should remove existing server', () => {
-      const server = {
-        name: 'to-remove',
-        type: 'stdio' as const,
+      manager.addServer('to-remove', {
         command: 'node',
         args: []
-      };
-
-      manager.addServer(server);
+      });
       expect(manager.listServers()).toHaveLength(1);
 
       manager.removeServer('to-remove');
@@ -177,45 +168,34 @@ describe('ConfigManager', () => {
 
   describe('updateServer', () => {
     it('should update server configuration', () => {
-      const original = {
-        name: 'to-update',
-        type: 'stdio' as const,
+      manager.addServer('to-update', {
         command: 'node',
         args: ['--version']
-      };
+      });
 
-      manager.addServer(original);
-
-      const updates = {
-        command: 'npm',
-        args: ['start']
-      };
-
-      manager.updateServer('to-update', updates);
-      const updated = manager.getServer('to-update');
-
-      expect(updated).toMatchObject({
-        name: 'to-update',
+      manager.updateServer('to-update', {
         command: 'npm',
         args: ['start']
       });
+      const updated = manager.getServer('to-update');
+
+      expect(updated).toBeDefined();
+      expect((updated as any).command).toBe('npm');
+      expect((updated as any).args).toEqual(['start']);
     });
 
     it('should preserve disabled status during update', () => {
-      const original = {
-        name: 'update-disabled',
-        type: 'stdio' as const,
+      manager.addServer('update-disabled', {
         command: 'node',
         args: [],
         disabled: true
-      };
+      });
 
-      manager.addServer(original);
       manager.updateServer('update-disabled', { command: 'npm' });
       const updated = manager.getServer('update-disabled');
 
-      expect(updated?.disabled).toBe(true);
-      expect(updated?.command).toBe('npm');
+      expect((updated as any).disabled).toBe(true);
+      expect((updated as any).command).toBe('npm');
     });
 
     it('should throw error when updating non-existing server', () => {
@@ -224,35 +204,32 @@ describe('ConfigManager', () => {
   });
 
   describe('persistence', () => {
-    it('should persist configuration to file', () => {
-      const server = {
-        name: 'persistent',
-        type: 'stdio' as const,
+    it('should persist configuration to file in standard MCP format', () => {
+      manager.addServer('persistent', {
         command: 'node',
         args: []
-      };
-
-      manager.addServer(server);
+      });
 
       const configFile = path.join(testConfigDir, 'mcp.json');
       expect(fs.existsSync(configFile)).toBe(true);
 
       const content = JSON.parse(fs.readFileSync(configFile, 'utf-8'));
-      expect(content.servers).toHaveLength(1);
-      expect(content.servers[0].name).toBe('persistent');
+      // Standard MCP format uses mcpServers object, not servers array
+      expect(content.mcpServers).toBeDefined();
+      expect(content.mcpServers.persistent).toBeDefined();
+      expect(content.mcpServers.persistent.command).toBe('node');
     });
 
     it('should load existing configuration on instantiation', () => {
       const configFile = path.join(testConfigDir, 'mcp.json');
+      // Standard MCP format
       const existingConfig = {
-        servers: [
-          {
-            name: 'existing',
-            type: 'stdio',
+        mcpServers: {
+          existing: {
             command: 'node',
             args: []
           }
-        ]
+        }
       };
 
       fs.writeFileSync(configFile, JSON.stringify(existingConfig, null, 2));
@@ -262,6 +239,29 @@ describe('ConfigManager', () => {
 
       expect(servers).toHaveLength(1);
       expect(servers[0].name).toBe('existing');
+    });
+
+    it('should reject old format (servers array)', () => {
+      const configFile = path.join(testConfigDir, 'mcp.json');
+      // Old format (should be rejected)
+      const oldConfig = {
+        servers: [
+          {
+            name: 'old-server',
+            type: 'stdio',
+            command: 'node',
+            args: []
+          }
+        ]
+      };
+
+      fs.writeFileSync(configFile, JSON.stringify(oldConfig, null, 2));
+
+      const newManager = new ConfigManager(testConfigDir);
+      const servers = newManager.listServers();
+
+      // Old format should be rejected, returning empty list
+      expect(servers).toHaveLength(0);
     });
   });
 });

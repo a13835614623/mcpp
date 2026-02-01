@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { configManager } from '../core/config.js';
 import { DaemonClient } from '../core/daemon-client.js';
+import { detectServerType } from '../types/config.js';
 
 export const registerServerCommands = (program: Command) => {
   const listServersAction = () => {
@@ -33,21 +34,23 @@ export const registerServerCommands = (program: Command) => {
 
       // Build table rows
       const rows = servers.map(server => {
-          const disabled = (server as any).disabled === true;
-          const typeColor = server.type === 'stdio' ? chalk.cyan : chalk.yellow;
+          const disabled = server.disabled === true;
+          const serverType = detectServerType(server);
+          const typeColor = serverType === 'stdio' ? chalk.cyan : chalk.yellow;
           const enabledMark = disabled ? chalk.red('✗') : chalk.green('✓');
 
           // Build command/URL string
           let command = '';
-          if (server.type === 'stdio') {
-              command = `${server.command} ${server.args.join(' ')}`;
-          } else {
-              command = server.url || '';
+          if ('command' in server && server.command) {
+              const args = (server as any).args as string[] | undefined;
+              command = `${server.command} ${args?.join(' ') || ''}`;
+          } else if ('url' in server && server.url) {
+              command = (server as any).url as string;
           }
 
           return {
               name: server.name,
-              type: typeColor(server.type),
+              type: typeColor(serverType),
               enabled: enabledMark,
               command: command,
               disabled
@@ -77,11 +80,9 @@ export const registerServerCommands = (program: Command) => {
 
   const addServerAction = (name: string, options: any) => {
       try {
-        if (options.type === 'sse' || options.type === 'http') {
-          if (!options.url) throw new Error(`URL is required for ${options.type} servers`);
-          configManager.addServer({
-            name,
-            type: options.type,
+        if (options.type === 'sse' || options.type === 'http' || options.url) {
+          if (!options.url) throw new Error(`URL is required for ${options.type || 'HTTP/SSE'} servers`);
+          configManager.addServer(name, {
             url: options.url,
           });
         } else {
@@ -97,9 +98,7 @@ export const registerServerCommands = (program: Command) => {
             });
           }
 
-          configManager.addServer({
-            name,
-            type: 'stdio',
+          configManager.addServer(name, {
             command: options.command,
             args: options.args || [],
             env: Object.keys(env).length > 0 ? env : undefined,

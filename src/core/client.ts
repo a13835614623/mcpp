@@ -2,7 +2,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { ServerConfig } from '../types/config.js';
+import { ServerConfig, detectServerType } from '../types/config.js';
 import { EventSource } from 'eventsource';
 import { spawn } from 'child_process';
 import { exec } from 'child_process';
@@ -66,26 +66,28 @@ export class McpClientService {
 
   async connect(config: ServerConfig, serverName: string = '') {
     this.serverName = serverName;
-    this.serverType = config.type;
+    const serverType = detectServerType(config);
+    this.serverType = serverType;
     this.daemonPid = process.pid;
 
     try {
-      if (config.type === 'stdio') {
+      if (serverType === 'stdio' && 'command' in config) {
+        const stdioConfig = config as { command: string; args?: string[]; env?: Record<string, string> };
         // 保存命令和参数用于后续清理进程
-        this.serverCommand = config.command;
-        this.serverArgs = config.args || [];
+        this.serverCommand = stdioConfig.command;
+        this.serverArgs = stdioConfig.args || [];
 
         const resolvedConfigEnv: Record<string, string> = {};
-        if (config.env) {
-          for (const key in config.env) {
-            const val = config.env[key];
+        if (stdioConfig.env) {
+          for (const key in stdioConfig.env) {
+            const val = stdioConfig.env[key];
             if (typeof val === 'string') {
               resolvedConfigEnv[key] = resolveEnvPlaceholders(val);
             }
           }
         }
 
-        const rawEnv = config.env ? { ...process.env, ...resolvedConfigEnv } : process.env;
+        const rawEnv = stdioConfig.env ? { ...process.env, ...resolvedConfigEnv } : process.env;
         const env: Record<string, string> = {};
         for (const key in rawEnv) {
             const val = rawEnv[key];
@@ -94,18 +96,20 @@ export class McpClientService {
             }
         }
 
-        const args = config.args ? config.args.map(arg => resolveEnvPlaceholders(arg)) : [];
+        const args = stdioConfig.args ? stdioConfig.args.map(arg => resolveEnvPlaceholders(arg)) : [];
         this.transport = new StdioClientTransport({
-          command: config.command,
+          command: stdioConfig.command,
           args,
           env: env,
         });
-      } else if (config.type === 'http') {
-        const url = resolveEnvPlaceholders(config.url);
+      } else if (serverType === 'http' && 'url' in config) {
+        const url = resolveEnvPlaceholders((config as { url: string }).url);
         this.transport = new StreamableHTTPClientTransport(new URL(url));
-      } else {
-        const url = resolveEnvPlaceholders(config.url);
+      } else if ('url' in config) {
+        const url = resolveEnvPlaceholders((config as { url: string }).url);
         this.transport = new SSEClientTransport(new URL(url));
+      } else {
+        throw new Error('Invalid server configuration: must have either command (for stdio) or url (for sse/http)');
       }
 
       this.client = new Client(
