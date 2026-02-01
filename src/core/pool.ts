@@ -62,16 +62,23 @@ export class ConnectionPool {
   }
 
   async closeAll() {
+    const verbose = process.env.MCPS_VERBOSE === 'true';
+    if (verbose) {
+      console.log('closeAll() called');
+    }
     for (const [name, client] of this.clients) {
-      console.log(`[Daemon] Closing connection to ${name}...`);
+      console.log(`Closing connection to ${name}...`);
       try {
-        client.close(); // 同步调用，不使用 await
+        client.close();
       } catch (e) {
-        console.error(`[Daemon] Error closing ${name}:`, e);
+        console.error(`Error closing ${name}:`, e);
       }
     }
     this.clients.clear();
     this.toolsCache.clear();
+    if (verbose) {
+      console.log('Connection pools cleared');
+    }
   }
 
   async initializeAll() {
@@ -85,23 +92,23 @@ export class ConnectionPool {
     const enabledServers = servers.filter(server => {
       const disabled = (server as any).disabled === true;
       if (verbose && disabled) {
-        console.log(`[Daemon] Skipping disabled server: ${server.name}`);
+        console.log(`Skipping disabled server: ${server.name}`);
       }
       return !disabled;
     });
 
     if (enabledServers.length === 0) {
-      console.log('[Daemon] No enabled servers to initialize.');
+      console.log('No enabled servers to initialize.');
       this.initializing = false;
       this.initialized = true;
       return;
     }
 
-    console.log(`[Daemon] Connecting to ${enabledServers.length} server(s)...`);
+    console.log(`Connecting to ${enabledServers.length} server(s)...`);
     const results: { name: string; success: boolean; error?: string }[] = [];
 
     for (const server of enabledServers) {
-        process.stdout.write(`[Daemon] - ${server.name}... `);
+        process.stdout.write(`- ${server.name}... `);
         try {
             await this.getClient(server.name, { timeoutMs: 8000 });
             results.push({ name: server.name, success: true });
@@ -121,7 +128,7 @@ export class ConnectionPool {
             results.push({ name: server.name, success: false, error: errorMsg });
             console.log('Failed ✗');
             if (verbose) {
-                console.error(`[Daemon] Error: ${errorMsg}`);
+                console.error(`Error: ${errorMsg}`);
             }
         }
     }
@@ -129,10 +136,10 @@ export class ConnectionPool {
     // Print summary
     const successCount = results.filter(r => r.success).length;
     const failed = results.filter(r => !r.success);
-    console.log(`[Daemon] Connected: ${successCount}/${enabledServers.length}`);
+    console.log(`Connected: ${successCount}/${enabledServers.length}`);
 
     if (failed.length > 0) {
-        console.log('[Daemon] Failed connections:');
+        console.log('Failed connections:');
         failed.forEach(f => {
             console.log(`  ✗ ${f.name}: ${f.error}`);
         });

@@ -1,8 +1,48 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
+import http from 'http';
 import { configManager } from '../core/config.js';
 import { DaemonClient } from '../core/daemon-client.js';
 import { detectServerType } from '../types/config.js';
+import { DAEMON_PORT } from '../core/constants.js';
+
+// Helper function to make HTTP requests to daemon (bypassing proxy)
+function daemonRequest(method: string, path: string, body?: string): Promise<{ status: number; ok: boolean; data: any }> {
+  return new Promise((resolve, reject) => {
+    const port = parseInt(process.env.MCPS_PORT || String(DAEMON_PORT));
+    const options = {
+      method,
+      hostname: '127.0.0.1',
+      port,
+      path,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    };
+
+    const req = http.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        try {
+          resolve({
+            status: res.statusCode || 500,
+            ok: (res.statusCode || 500) >= 200 && (res.statusCode || 500) < 300,
+            data: data ? JSON.parse(data) : {},
+          });
+        } catch (e) {
+          reject(e);
+        }
+      });
+    });
+
+    req.on('error', reject);
+    if (body) {
+      req.write(body);
+    }
+    req.end();
+  });
+}
 
 export const registerServerCommands = (program: Command) => {
   const listServersAction = () => {
@@ -125,23 +165,16 @@ export const registerServerCommands = (program: Command) => {
           try {
               await DaemonClient.ensureDaemon();
 
-              // Call daemon restart API to refresh all connections
-              const port = parseInt(process.env.MCPS_PORT || '4100');
-              const res = await fetch(`http://localhost:${port}/restart`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({})
-              });
+              // Call daemon restart API to restart all connections
+              const { ok, data } = await daemonRequest('POST', '/restart', JSON.stringify({}));
 
-              if (res.ok) {
-                  const data = await res.json();
+              if (ok) {
                   console.log(chalk.green(data.message));
-                  console.log(chalk.gray('All servers will be reconnected on next use.'));
               } else {
-                  throw new Error('Failed to refresh connections');
+                  throw new Error(data.error || 'Failed to restart connections');
               }
           } catch (error: any) {
-              console.error(chalk.red(`Failed to refresh all servers: ${error.message}`));
+              console.error(chalk.red(`Failed to restart all servers: ${error.message}`));
               console.error(chalk.yellow('Make sure the daemon is running (use: mcps start)'));
           }
           return;
