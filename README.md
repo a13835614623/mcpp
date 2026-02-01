@@ -308,6 +308,275 @@ mcps 通过以下方式优化性能：
 - 查看状态：~200ms
 - 调用工具：~50-100ms
 
+## 开发工作流
+
+欢迎贡献代码！以下是参与项目开发的完整流程。
+
+### 环境准备
+
+**前置要求：**
+- Node.js >= 20
+- npm >= 9
+- Git
+
+**克隆项目：**
+```bash
+git clone https://github.com/a13835614623/mcps.git
+cd mcps
+```
+
+**安装依赖：**
+```bash
+npm install
+```
+
+### 本地开发
+
+**开发模式（使用 ts-node 直接运行）：**
+```bash
+npm run dev -- <command>
+# 例如
+npm run dev -- ls
+npm run dev -- start
+```
+
+**构建项目：**
+```bash
+npm run build
+```
+
+**运行构建后的版本：**
+```bash
+npm start -- <command>
+# 或者
+node dist/index.js <command>
+```
+
+### 测试
+
+**运行测试：**
+```bash
+# 运行所有测试
+npm test
+
+# 监听模式（开发时推荐）
+npm run test:watch
+
+# 启动测试 UI 界面
+npm run test:ui
+
+# 生成测试覆盖率报告
+npm run test:coverage
+```
+
+**测试要求：**
+- 所有测试必须通过
+- 新功能需要添加相应的测试
+- 保持测试覆盖率在合理水平
+
+### 提交规范
+
+**提交信息格式：**
+```
+<type>: <description>
+
+[optional body]
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+```
+
+**提交类型（type）：**
+- `feat`: 新功能
+- `fix`: 修复 bug
+- `chore`: 构建过程或辅助工具的变动
+- `docs`: 文档更新
+- `refactor`: 重构（既不是新增功能，也不是修复 bug）
+- `style`: 代码格式调整（不影响代码运行的变动）
+- `test`: 增加测试
+- `perf`: 性能优化
+
+**示例：**
+```bash
+feat: 支持可配置的 daemon 启动超时时间
+
+新增功能：
+- 支持通过命令行参数 --timeout/-t 设置超时
+- 支持通过环境变量 MCPS_DAEMON_TIMEOUT 设置超时
+- 支持通过配置文件 daemonTimeout 字段设置超时
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+```
+
+### PR 流程
+
+**1. 创建功能分支：**
+```bash
+git checkout -b feature/your-feature-name
+# 或
+git checkout -b fix/your-bug-fix
+```
+
+**分支命名规范：**
+- `feature/` - 新功能
+- `fix/` - bug 修复
+- `refactor/` - 重构
+- `docs/` - 文档更新
+- `chore/` - 构建/工具更新
+
+**2. 开发并提交：**
+```bash
+# 进行开发...
+npm run build  # 确保构建成功
+npm test       # 确保测试通过
+
+# 提交代码
+git add .
+git commit -m "feat: 你的功能描述"
+```
+
+**3. 更新版本号（如需要）：**
+```bash
+# Patch 版本（bug 修复）
+npm version patch
+
+# Minor 版本（新功能）
+npm version minor
+
+# Major 版本（破坏性变更）
+npm version major
+```
+
+**4. 推送并创建 PR：**
+```bash
+git push origin feature/your-feature-name
+```
+
+然后访问 GitHub 创建 Pull Request，或在命令行使用：
+```bash
+gh pr create --title "feat: 功能标题" --body "PR 描述"
+```
+
+**5. PR 检查清单：**
+- ✅ CI 测试通过（GitHub Actions）
+- ✅ 代码通过所有测试
+- ✅ 新功能有对应的测试
+- ✅ 提交信息符合规范
+- ✅ PR 描述清晰说明了变更内容
+- ✅ 版本号已正确更新（如需要）
+
+**6. 解决冲突（如有）：**
+```bash
+# 如果 main 分支有更新，先合并最新代码
+git fetch origin
+git merge origin/main
+
+# 解决冲突后
+git add .
+git commit -m "chore: merge main and resolve conflicts"
+git push origin feature/your-feature-name
+```
+
+### 发布流程
+
+项目采用**自动化发布**流程：
+
+**1. 版本管理：**
+- 修改 `package.json` 中的版本号
+- 或使用 `npm version` 命令
+
+**2. 发布触发：**
+- 当 PR 合并到 `main` 分支时
+- 如果版本号发生变化
+- GitHub Actions 自动发布到 npm
+
+**3. 版本号规则：**
+- `1.0.0` → `1.0.1` (Patch): bug 修复
+- `1.0.1` → `1.1.0` (Minor): 新功能
+- `1.1.0` → `2.0.0` (Major): 破坏性变更
+
+**4. 预发布版本（可选）：**
+```bash
+npm version prerelease --preid beta
+# 生成 1.0.0-beta.0
+```
+
+预发布版本会发布到 npm 的 `beta` tag。
+
+**5. 跳过发布：**
+如果 PR 不需要发布，在标题中添加 `[skip release]`：
+```
+[skip release] chore: 更新文档
+```
+
+### CI/CD
+
+**CI 检查（.github/workflows/ci.yml）：**
+- 每次 PR 和 push 都会触发
+- 运行测试套件
+- 构建项目
+- 确保代码质量
+
+**Release 自动化（.github/workflows/release.yml）：**
+- PR 合并后触发
+- 检测版本号变化
+- 自动发布到 npm
+- 创建 GitHub Release
+
+### 代码规范
+
+**TypeScript：**
+- 使用 TypeScript 进行类型检查
+- 运行 `npm run build` 检查类型错误
+
+**代码风格：**
+- 遵循项目现有代码风格
+- 使用有意义的变量和函数名
+- 添加必要的注释
+
+**项目结构：**
+```
+mcps/
+├── src/
+│   ├── commands/      # 命令实现
+│   ├── core/          # 核心功能
+│   ├── types/         # 类型定义
+│   └── index.ts       # 入口文件
+├── test/              # 测试文件
+├── dist/              # 构建输出
+└── package.json
+```
+
+### 常见问题（开发）
+
+**Q: 如何调试代码？**
+```bash
+# 使用开发模式运行
+npm run dev -- start --verbose
+
+# 或构建后直接运行
+npm run build
+node --inspect dist/index.js <command>
+```
+
+**Q: 测试失败了怎么办？**
+```bash
+# 运行特定测试文件
+npm test -- <test-file>
+
+# 查看详细输出
+npm test -- --reporter=verbose
+```
+
+**Q: 如何本地测试 npm 包？**
+```bash
+# 在项目根目录
+npm link
+
+# 在其他项目中使用
+npm link @maplezzk/mcps
+mcps ls
+```
+
 ## 常见问题
 
 **Q: 如何查看所有服务器的运行状态？**
