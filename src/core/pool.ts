@@ -110,7 +110,7 @@ export class ConnectionPool {
     for (const server of enabledServers) {
         process.stdout.write(`- ${server.name}... `);
         try {
-            await this.getClient(server.name, { timeoutMs: 8000 });
+            await this.getClient(server.name, { timeoutMs: 20000 });
             results.push({ name: server.name, success: true });
             console.log('Connected ✓');
         } catch (error: any) {
