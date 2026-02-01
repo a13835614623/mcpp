@@ -23,53 +23,38 @@ export class ConfigManager {
   private loadConfig(): Config {
     this.ensureConfigDir();
     if (!fs.existsSync(this.configFile)) {
-      return { servers: [] };
+      return { mcpServers: {} };
     }
     try {
       const content = fs.readFileSync(this.configFile, 'utf-8');
       const json = JSON.parse(content);
 
-      // Log for debugging (can be removed later or controlled by verbose flag)
-      // console.log('Loading config from:', this.configFile);
-
       if (!json || typeof json !== 'object') {
-          console.warn('Invalid config file structure. Expected JSON object.');
-          return { servers: [] };
+        console.warn('Invalid config file structure. Expected JSON object.');
+        return { mcpServers: {} };
       }
 
-      // Handle both { servers: [...] } and { mcpServers: { ... } } (VSCode/Claude style)
-      let servers: any[] = [];
-      
-      if (Array.isArray(json.servers)) {
-          servers = json.servers;
-      } else if (json.mcpServers && typeof json.mcpServers === 'object') {
-          // Convert map to array and add default type='stdio' if missing
-          servers = Object.entries(json.mcpServers).map(([name, config]: [string, any]) => ({
-              name,
-              type: config.type || (config.command ? 'stdio' : undefined), // Auto-detect type
-              ...config
-          }));
+      // Only accept standard MCP format: { mcpServers: { ... } }
+      if (!json.mcpServers || typeof json.mcpServers !== 'object') {
+        console.warn('Invalid config format. Expected { mcpServers: { ... } }');
+        return { mcpServers: {} };
       }
 
-      const validServers: ServerConfig[] = [];
-
-      for (const server of servers) {
-          const result = ServerConfigSchema.safeParse(server);
-          if (result.success) {
-              validServers.push(result.data);
-          } else {
-              // Only warn if it looks like a server config we *should* have supported
-              if (server.name) {
-                  console.warn(`Skipping invalid server config "${server.name}":`, result.error.errors[0]?.message);
-              }
-          }
+      // Validate each server config
+      const validServers: Record<string, ServerConfig> = {};
+      for (const [name, serverConfig] of Object.entries(json.mcpServers)) {
+        const result = ServerConfigSchema.safeParse(serverConfig);
+        if (result.success) {
+          validServers[name] = result.data;
+        } else {
+          console.warn(`Skipping invalid server config "${name}":`, result.error.errors[0]?.message);
+        }
       }
 
-      return { servers: validServers };
-
+      return { mcpServers: validServers };
     } catch (error) {
       console.error('Failed to parse config file:', error);
-      return { servers: [] };
+      return { mcpServers: {} };
     }
   }
 
@@ -78,51 +63,53 @@ export class ConfigManager {
     fs.writeFileSync(this.configFile, JSON.stringify(config, null, 2), 'utf-8');
   }
 
-  listServers(): ServerConfig[] {
-    return this.loadConfig().servers;
+  listServers(): Array<ServerConfig & { name: string }> {
+    const config = this.loadConfig();
+    return Object.entries(config.mcpServers).map(([name, server]) => ({
+      name,
+      ...server,
+    }));
   }
 
-  getServer(name: string): ServerConfig | undefined {
+  getServer(name: string): (ServerConfig & { name: string }) | undefined {
     const config = this.loadConfig();
-    return config.servers.find(s => s.name === name);
+    const server = config.mcpServers[name];
+    if (!server) return undefined;
+    return { name, ...server };
   }
 
-  addServer(server: ServerConfig) {
+  addServer(name: string, server: ServerConfig) {
     const config = this.loadConfig();
-    if (config.servers.find(s => s.name === server.name)) {
-      throw new Error(`Server with name "${server.name}" already exists.`);
+    if (config.mcpServers[name]) {
+      throw new Error(`Server with name "${name}" already exists.`);
     }
-    config.servers.push(server);
+    config.mcpServers[name] = server;
     this.saveConfig(config);
   }
 
   removeServer(name: string) {
     const config = this.loadConfig();
-    const initialLength = config.servers.length;
-    config.servers = config.servers.filter(s => s.name !== name);
-    if (config.servers.length === initialLength) {
+    if (!config.mcpServers[name]) {
       throw new Error(`Server with name "${name}" not found.`);
     }
+    delete config.mcpServers[name];
     this.saveConfig(config);
   }
 
   updateServer(name: string, updates: Partial<ServerConfig>) {
     const config = this.loadConfig();
-    const index = config.servers.findIndex(s => s.name === name);
-    if (index === -1) {
+    const current = config.mcpServers[name];
+    if (!current) {
       throw new Error(`Server with name "${name}" not found.`);
     }
 
-    const current = config.servers[index];
     const updated = { ...current, ...updates };
-    
-    // Validate the updated object matches the schema (especially type consistency)
     const result = ServerConfigSchema.safeParse(updated);
     if (!result.success) {
-        throw new Error(`Invalid update: ${result.error.message}`);
+      throw new Error(`Invalid update: ${result.error.message}`);
     }
 
-    config.servers[index] = result.data;
+    config.mcpServers[name] = result.data;
     this.saveConfig(config);
   }
 }
