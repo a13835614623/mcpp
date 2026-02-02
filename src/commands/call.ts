@@ -4,6 +4,57 @@ import { readFileSync } from 'fs';
 import { configManager } from '../core/config.js';
 import { DaemonClient } from '../core/daemon-client.js';
 
+/**
+ * Parse call command arguments
+ * @param args - Command line arguments in key=value format
+ * @param raw - Whether to treat all values as raw strings
+ * @returns Parsed parameters object
+ */
+export function parseCallArgs(args: string[] | undefined, raw: boolean): Record<string, any> {
+  const params: Record<string, any> = {};
+  
+  if (!args) return params;
+  
+  args.forEach((arg: string) => {
+    const eqIndex = arg.indexOf('=');
+    if (eqIndex > 0) {
+      const key = arg.slice(0, eqIndex);
+      const valStr = arg.slice(eqIndex + 1);
+      
+      if (raw) {
+        // --raw mode: treat all values as strings
+        params[key] = valStr;
+      } else {
+        // Default mode: try JSON parsing
+        try {
+          params[key] = JSON.parse(valStr);
+        } catch {
+          params[key] = valStr;
+        }
+      }
+    }
+  });
+  
+  return params;
+}
+
+/**
+ * Load parameters from JSON string or file
+ * @param jsonValue - JSON string (starts with { or [) or file path
+ * @returns Parsed parameters object
+ */
+export function loadJsonParams(jsonValue: string): Record<string, any> {
+  const trimmed = jsonValue.trim();
+  // Check if it's a JSON string (starts with { or [)
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    return JSON.parse(jsonValue);
+  } else {
+    // Treat as file path
+    const jsonContent = readFileSync(jsonValue, 'utf-8');
+    return JSON.parse(jsonContent);
+  }
+}
+
 function printResult(result: any) {
     if (result.content) {
         (result.content as any[]).forEach((item: any) => {
@@ -51,40 +102,13 @@ Notes:
       // Load from JSON file or string if specified
       if (options.json) {
         try {
-          const jsonValue = options.json as string;
-          // Check if it's a JSON string (starts with { or [)
-          if (jsonValue.trim().startsWith('{') || jsonValue.trim().startsWith('[')) {
-            params = JSON.parse(jsonValue);
-          } else {
-            // Treat as file path
-            const jsonContent = readFileSync(jsonValue, 'utf-8');
-            params = JSON.parse(jsonContent);
-          }
+          params = loadJsonParams(options.json as string);
         } catch (error: any) {
           console.error(chalk.red(`Failed to parse JSON: ${error.message}`));
           process.exit(1);
         }
-      } else if (args) {
-        // Parse command line arguments
-        args.forEach((arg: string) => {
-          const eqIndex = arg.indexOf('=');
-          if (eqIndex > 0) {
-            const key = arg.slice(0, eqIndex);
-            const valStr = arg.slice(eqIndex + 1);
-            
-            if (options.raw) {
-              // --raw mode: treat all values as strings
-              params[key] = valStr;
-            } else {
-              // Default mode: try JSON parsing
-              try {
-                params[key] = JSON.parse(valStr);
-              } catch {
-                params[key] = valStr;
-              }
-            }
-          }
-        });
+      } else {
+        params = parseCallArgs(args, options.raw);
       }
 
       // Check if server exists in config first
