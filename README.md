@@ -409,10 +409,18 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 
 ### PR 流程
 
-**1. 创建功能分支：**
+**⚠️ 重要规范：**
+- **永远不要直接在 `main` 分支上提交代码**
+- **版本号必须使用 `npm version` 命令更新，禁止手动修改 `package.json`**
+
+**1. 创建功能分支（必须）：**
 ```bash
+# 从 main 分支创建新分支
+git checkout main
+git pull origin main
 git checkout -b feature/your-feature-name
-# 或
+
+# 或 bug 修复分支
 git checkout -b fix/your-bug-fix
 ```
 
@@ -429,13 +437,21 @@ git checkout -b fix/your-bug-fix
 npm run build  # 确保构建成功
 npm test       # 确保测试通过
 
-# 提交代码
+# 提交代码（在功能分支上提交）
 git add .
 git commit -m "feat: 你的功能描述"
+
+# ⚠️ 不要在 main 分支提交！如果误提交到 main，需要重置：
+# git checkout main
+# git reset --hard HEAD~1  # 回退到上一个提交
+# git checkout -b feature/your-feature-name
+# git cherry-pick <commit-hash>  # 将提交移到新分支
 ```
 
 **3. 更新版本号（如需要）：**
 ```bash
+# ⚠️ 必须使用 npm version 命令，禁止手动修改 package.json
+
 # Patch 版本（bug 修复）
 npm version patch
 
@@ -444,11 +460,16 @@ npm version minor
 
 # Major 版本（破坏性变更）
 npm version major
+
+# 预发布版本（可选）
+npm version prerelease --preid beta
 ```
 
 **4. 推送并创建 PR：**
 ```bash
+# 推送分支和标签（如果有版本更新）
 git push origin feature/your-feature-name
+git push origin v1.x.x  # 如果有版本标签
 ```
 
 然后访问 GitHub 创建 Pull Request，或在命令行使用：
@@ -457,12 +478,13 @@ gh pr create --title "feat: 功能标题" --body "PR 描述"
 ```
 
 **5. PR 检查清单：**
+- ✅ 从 `main` 分支创建的功能分支（非 main 分支直接提交）
 - ✅ CI 测试通过（GitHub Actions）
 - ✅ 代码通过所有测试
 - ✅ 新功能有对应的测试
 - ✅ 提交信息符合规范
 - ✅ PR 描述清晰说明了变更内容
-- ✅ 版本号已正确更新（如需要）
+- ✅ 版本号已使用 `npm version` 正确更新（如需要）
 
 **6. 解决冲突（如有）：**
 ```bash
@@ -476,13 +498,38 @@ git commit -m "chore: merge main and resolve conflicts"
 git push origin feature/your-feature-name
 ```
 
+**7. 常见错误修复：**
+
+如果误提交到 `main` 分支：
+```bash
+# 1. 保存当前提交的哈希值
+git log --oneline -1
+# 记录 commit hash，例如：abc1234
+
+# 2. 回退 main 分支
+git checkout main
+git reset --hard HEAD~1  # 回退最近一个提交
+# 或回退到远程版本：git reset --hard origin/main
+
+# 3. 创建功能分支并恢复提交
+git checkout -b feature/your-feature-name
+git cherry-pick abc1234  # 使用刚才记录的 hash
+
+# 4. 推送功能分支
+git push origin feature/your-feature-name
+```
+
 ### 发布流程
 
 项目采用**自动化发布**流程：
 
-**1. 版本管理：**
-- 修改 `package.json` 中的版本号
-- 或使用 `npm version` 命令
+**1. 版本管理（⚠️ 重要）：**
+- **必须使用 `npm version` 命令更新版本号**
+- **禁止手动修改 `package.json` 中的 version 字段**
+- `npm version` 会自动：
+  - 更新 `package.json` 中的版本号
+  - 创建版本提交（如 `1.2.0`）
+  - 创建 Git 标签（如 `v1.2.0`）
 
 **2. 发布触发：**
 - 当 PR 合并到 `main` 分支时
