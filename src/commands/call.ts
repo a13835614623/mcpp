@@ -42,19 +42,26 @@ Notes:
   - Arguments are parsed as key=value pairs.
   - By default, values are automatically parsed as JSON if possible (numbers, booleans, objects).
   - Use --raw to disable JSON parsing and treat all values as strings.
-  - Use --json to load parameters from a JSON file (overrides command line args).
+  - Use --json to load parameters from a JSON file or JSON string.
   - For strings with spaces, wrap the value in quotes (e.g., msg="hello world").
 `)
     .action(async (serverName, toolName, args, options) => {
       let params: Record<string, any> = {};
 
-      // Load from JSON file if specified
+      // Load from JSON file or string if specified
       if (options.json) {
         try {
-          const jsonContent = readFileSync(options.json, 'utf-8');
-          params = JSON.parse(jsonContent);
+          const jsonValue = options.json as string;
+          // Check if it's a JSON string (starts with { or [)
+          if (jsonValue.trim().startsWith('{') || jsonValue.trim().startsWith('[')) {
+            params = JSON.parse(jsonValue);
+          } else {
+            // Treat as file path
+            const jsonContent = readFileSync(jsonValue, 'utf-8');
+            params = JSON.parse(jsonContent);
+          }
         } catch (error: any) {
-          console.error(chalk.red(`Failed to load JSON file: ${error.message}`));
+          console.error(chalk.red(`Failed to parse JSON: ${error.message}`));
           process.exit(1);
         }
       } else if (args) {
