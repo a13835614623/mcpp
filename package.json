@@ -30,6 +30,7 @@
     "prepublishOnly": "npm run build && npm run test",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
+    "check": "npm run build && npm test",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
