@@ -61,11 +61,23 @@ node dist/index.js <command>
 
 ## 测试
 
-**运行测试：**
+**⚠️ 重要：完整检查流程**
 ```bash
-# 运行所有测试
-npm test
+# 推荐方式：一次性运行构建和测试
+npm run check
 
+# 或分步执行（确保两步都通过！）
+npm run build    # TypeScript 类型检查
+npm test         # 运行测试套件
+```
+
+**为什么需要 `npm run build`？**
+- `npm test` 只运行 vitest，不会进行完整的 TypeScript 类型检查
+- `npm run build` 执行 `tsc` 进行严格的类型检查
+- **必须两者都通过才能提交代码**
+
+**其他测试命令：**
+```bash
 # 监听模式（开发时推荐）
 npm run test:watch
 
@@ -80,6 +92,7 @@ npm run test:coverage
 - 所有测试必须通过
 - 新功能需要添加相应的测试
 - 保持测试覆盖率在合理水平
+- **TypeScript 编译必须无错误**
 
 ---
 
@@ -198,16 +211,19 @@ gh pr create --title "feat: 功能标题" --body "PR 描述"
 - ✅ 代码已提交到功能分支（非 main 分支）
 - ✅ **新功能包含对应的单元测试**
 - ✅ **版本号已使用 `npm version` 更新（如需要发布）**
-- ✅ `npm run build` 构建成功
+- ✅ **`npm run build` TypeScript 编译成功**
 - ✅ `npm test` 所有测试通过
 - ✅ 提交信息符合规范
 - ✅ PR 描述清晰说明了变更内容
+
+**⚠️ 重要提示：** 推荐使用 `npm run check` 一次性验证构建和测试！
 
 ### ⚠️ 常见错误（真实案例）
 
 | 错误 | 后果 | 正确做法 |
 |------|------|----------|
 | 直接在 `main` 分支开发 | 污染主分支，无法创建干净的 PR | 始终创建 `feature/` 或 `fix/` 分支 |
+| 只运行 `npm test` 不运行 `npm run build` | TypeScript 类型检查错误被遗漏到 CI | **必须运行** `npm run check` 或 `npm run build && npm test` |
 | PR 创建后才更新版本号 | 版本提交不在 PR 中，合并后版本不一致 | **提 PR 前**执行 `npm version` |
 | PR 合并后继续往旧分支提交 | 提交无法进入新的 PR，需要 cherry-pick | PR 合并后，从最新的 `main` 创建新分支 |
 | 新功能不写测试 | 代码质量无法保证，容易回归 | 功能代码和测试代码一起提交 |
@@ -240,9 +256,8 @@ git checkout -b feature/my-feature
 # - 编写单元测试
 # - 确保测试覆盖新功能
 
-# 4. 构建和测试
-npm run build
-npm test
+# 4. ⚠️ 完整检查（必须两步都通过！）
+npm run check    # 等同于：npm run build && npm test
 
 # 5. 提交代码（包括功能代码和测试代码）
 git add .
