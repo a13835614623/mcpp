@@ -226,12 +226,8 @@ export class McpClientService {
   async callTool(toolName: string, args: any) {
     if (!this.client) throw new Error('Client not connected');
 
-    const verbose = process.env.MCPS_VERBOSE === 'true';
-
     // 记录工具调用请求
-    if (verbose) {
-      log(`[Tool Request] Server: ${this.serverName}, Tool: ${toolName}, Args: ${JSON.stringify(args)}`);
-    }
+    log(`[Tool Request] Server: ${this.serverName}, Tool: ${toolName}, Args: ${JSON.stringify(args)}`);
 
     const result = await this.client.callTool({
       name: toolName,
@@ -239,9 +235,7 @@ export class McpClientService {
     });
 
     // 记录工具调用响应
-    if (verbose) {
-      log(`[Tool Response] Server: ${this.serverName}, Tool: ${toolName}, Result: ${JSON.stringify(result)}`);
-    }
+    log(`[Tool Response] Server: ${this.serverName}, Tool: ${toolName}, Result: ${JSON.stringify(result)}`);
 
     return result;
   }
