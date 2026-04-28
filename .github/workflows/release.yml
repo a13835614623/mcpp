@@ -23,8 +23,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          registry-url: 'https://registry.npmjs.org'
           cache: 'npm'
+          # Trusted Publisher (OIDC): 不设置 registry-url，避免 .npmrc
+          # 中生成空 _authToken 干扰 npm 的 OIDC 自动检测
 
       - name: Install dependencies
         run: npm ci
@@ -66,8 +67,7 @@ jobs:
             echo "Publishing stable version $VERSION"
             npm publish --provenance
           fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        # Trusted Publisher: npm CLI 自动通过 OIDC 认证，无需 NODE_AUTH_TOKEN
 
       - name: Create GitHub Release
         if: steps.version.outputs.should_publish == 'true'
