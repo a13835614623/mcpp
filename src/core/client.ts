@@ -103,11 +103,29 @@ export class McpClientService {
           env: env,
         });
       } else if (serverType === 'http' && 'url' in config) {
-        const url = resolveEnvPlaceholders((config as { url: string }).url);
-        this.transport = new StreamableHTTPClientTransport(new URL(url));
+        const httpConfig = config as { url: string; headers?: Record<string, string> };
+        const url = resolveEnvPlaceholders(httpConfig.url);
+        const requestInit: RequestInit = {};
+        if (httpConfig.headers) {
+          const resolvedHeaders: Record<string, string> = {};
+          for (const key in httpConfig.headers) {
+            resolvedHeaders[key] = resolveEnvPlaceholders(httpConfig.headers[key]);
+          }
+          requestInit.headers = resolvedHeaders;
+        }
+        this.transport = new StreamableHTTPClientTransport(new URL(url), { requestInit });
       } else if ('url' in config) {
-        const url = resolveEnvPlaceholders((config as { url: string }).url);
-        this.transport = new SSEClientTransport(new URL(url));
+        const sseConfig = config as { url: string; headers?: Record<string, string> };
+        const url = resolveEnvPlaceholders(sseConfig.url);
+        const requestInit: RequestInit = {};
+        if (sseConfig.headers) {
+          const resolvedHeaders: Record<string, string> = {};
+          for (const key in sseConfig.headers) {
+            resolvedHeaders[key] = resolveEnvPlaceholders(sseConfig.headers[key]);
+          }
+          requestInit.headers = resolvedHeaders;
+        }
+        this.transport = new SSEClientTransport(new URL(url), { requestInit });
       } else {
         throw new Error('Invalid server configuration: must have either command (for stdio) or url (for sse/http)');
       }
