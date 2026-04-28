@@ -13,6 +13,8 @@ export const StdioServerConfigSchema = z.object({
 // Standard MCP server configuration (sse/http type)
 export const HttpServerConfigSchema = z.object({
   url: z.string().url(),
+  type: z.enum(['sse', 'streamableHttp', 'http']).optional(),
+  headers: z.record(z.string()).optional(),
   disabled: z.boolean().optional(),
   autoApprove: z.array(z.string()).optional(),
 }).passthrough();
