@@ -600,7 +600,7 @@ const startDaemon = (port: number) => {
           req.on('data', chunk => { body += chunk.toString(); });
           req.on('end', async () => {
             try {
-              const { server: serverName, tool, args } = JSON.parse(body);
+              const { server: serverName, tool, args, timeout } = JSON.parse(body);
               
               if (!serverName || !tool) {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -609,7 +609,7 @@ const startDaemon = (port: number) => {
               }
 
               const client = await connectionPool.getClient(serverName);
-              const result = await client.callTool(tool, args || {});
+              const result = await client.callTool(tool, args || {}, timeout);
 
               res.writeHead(200, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ result }));

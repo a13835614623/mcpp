@@ -241,16 +241,17 @@ export class McpClientService {
     return this.client.listTools();
   }
 
-  async callTool(toolName: string, args: any) {
+  async callTool(toolName: string, args: any, timeout?: number) {
     if (!this.client) throw new Error('Client not connected');
 
     // 记录工具调用请求
     log(`[Tool Request] Server: ${this.serverName}, Tool: ${toolName}, Args: ${JSON.stringify(args)}`);
 
+    const options = timeout !== undefined ? { timeout } : undefined;
     const result = await this.client.callTool({
       name: toolName,
       arguments: args,
-    });
+    }, undefined, options);
 
     // 记录工具调用响应
     log(`[Tool Response] Server: ${this.serverName}, Tool: ${toolName}, Result: ${JSON.stringify(result)}`);
