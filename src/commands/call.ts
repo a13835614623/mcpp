@@ -127,8 +127,8 @@ Notes:
         // Auto-start daemon if needed
         await DaemonClient.ensureDaemon();
         
-        // Parse timeout option (convert seconds to ms for SDK)
-        const timeout = options.timeout ? parseInt(options.timeout as string, 10) * 1000 : undefined;
+        // Parse timeout option (convert seconds to ms for SDK, default 5min = 300s)
+        const timeout = (options.timeout ? parseInt(options.timeout as string, 10) : 300) * 1000;
         
         // Execute via daemon
         const result = await DaemonClient.executeTool(serverName, toolName, params, timeout);
