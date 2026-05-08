@@ -76,6 +76,7 @@ export const registerCallCommand = (program: Command) => {
     .description('Call a tool on a server. Arguments format: key=value')
     .option('-r, --raw', 'Treat all values as raw strings (no JSON parsing)')
     .option('-j, --json <file>', 'Load parameters from a JSON file')
+    .option('-t, --timeout <seconds>', 'Request timeout in seconds (default: 60)')
     .addHelpText('after', `
 Examples:
   $ mcps call my-server echo message="Hello World"
@@ -89,11 +90,15 @@ Examples:
   # Use --json to load parameters from a file
   $ mcps call my-server createUser --json params.json
 
+  # Use --timeout to set custom request timeout (in seconds)
+  $ mcps call my-server download_label order_id="123" --timeout 180
+
 Notes:
   - Arguments are parsed as key=value pairs.
   - By default, values are automatically parsed as JSON if possible (numbers, booleans, objects).
   - Use --raw to disable JSON parsing and treat all values as strings.
   - Use --json to load parameters from a JSON file or JSON string.
+  - Use --timeout to override the default 60s request timeout.
   - For strings with spaces, wrap the value in quotes (e.g., msg="hello world").
 `)
     .action(async (serverName, toolName, args, options) => {
@@ -122,8 +127,11 @@ Notes:
         // Auto-start daemon if needed
         await DaemonClient.ensureDaemon();
         
+        // Parse timeout option (convert seconds to ms for SDK, default 5min = 300s)
+        const timeout = (options.timeout ? parseInt(options.timeout as string, 10) : 300) * 1000;
+        
         // Execute via daemon
-        const result = await DaemonClient.executeTool(serverName, toolName, params);
+        const result = await DaemonClient.executeTool(serverName, toolName, params, timeout);
         console.log(chalk.green('Tool execution successful:'));
         printResult(result);
 

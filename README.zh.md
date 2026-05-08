@@ -219,7 +219,7 @@ mcps call <server_name> <tool_name> [options] [arguments...]
 
 - `<server_name>`: 已配置的 MCP 服务名称
 - `<tool_name>`: 要调用的工具名称
-- `[options]`: 可选参数（`--raw`, `--json`）
+- `[options]`: 可选参数（`--raw`, `--json`, `--timeout`）
 - `[arguments...]`: 以 `key=value` 形式传递的参数
 
 **选项：**
@@ -228,6 +228,7 @@ mcps call <server_name> <tool_name> [options] [arguments...]
 |------|------|
 | `-r, --raw` | 将所有值作为原始字符串处理（禁用 JSON 解析） |
 | `-j, --json <value>` | 从 JSON 字符串或文件加载参数 |
+| `-t, --timeout <seconds>` | 请求超时时间（秒），默认 300（5分钟） |
 
 **默认模式（自动 JSON 解析）：**
 
@@ -261,6 +262,14 @@ mcps call alibaba-dms createDataChangeOrder --raw \
   script="DELETE FROM table WHERE id = 'xxx';" \
   logic=true
 # 实际发送: { "database_id": "36005357", "script": "...", "logic": "true" }
+```
+
+**--timeout 模式（自定义超时）：**
+
+使用 `--timeout` 覆盖默认的 300 秒（5分钟）请求超时，适用于长时间运行的工具：
+```bash
+# 设 3 分钟超时
+mcps call my-server download_label order_id="123" --timeout 180
 ```
 
 **--json 模式（复杂参数）：**

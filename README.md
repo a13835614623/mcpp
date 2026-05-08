@@ -218,7 +218,7 @@ mcps call <server_name> <tool_name> [options] [arguments...]
 
 - `<server_name>`: Name of the configured MCP server
 - `<tool_name>`: Name of the tool to call
-- `[options]`: Optional flags (`--raw`, `--json`)
+- `[options]`: Optional flags (`--raw`, `--json`, `--timeout`)
 - `[arguments...]`: Arguments passed as `key=value` pairs
 
 **Options:**
@@ -227,6 +227,7 @@ mcps call <server_name> <tool_name> [options] [arguments...]
 |--------|-------------|
 | `-r, --raw` | Treat all values as raw strings (disable JSON parsing) |
 | `-j, --json <value>` | Load parameters from JSON string or file |
+| `-t, --timeout <seconds>` | Request timeout in seconds (default: 300) |
 
 **Default Mode (Auto JSON Parsing):**
 
@@ -260,6 +261,14 @@ mcps call alibaba-dms createDataChangeOrder --raw \
   script="DELETE FROM table WHERE id = 'xxx';" \
   logic=true
 # Sends: { "database_id": "36005357", "script": "...", "logic": "true" }
+```
+
+**--timeout Mode (Custom Timeout):**
+
+Use `--timeout` to override the default 300-second (5-minute) request timeout for long-running tools:
+```bash
+# Set a 3-minute timeout for a slow tool
+mcps call my-server download_label order_id="123" --timeout 180
 ```
 
 **--json Mode (Complex Parameters):**

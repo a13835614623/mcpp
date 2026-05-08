@@ -48,11 +48,11 @@ export class DaemonClient {
     await this.startDaemon(timeout);
   }
 
-  static async executeTool(serverName: string, toolName: string, args: any) {
+  static async executeTool(serverName: string, toolName: string, args: any, timeout?: number) {
     const response = await fetch(`${DAEMON_BASE_URL}/call`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ server: serverName, tool: toolName, args }),
+      body: JSON.stringify({ server: serverName, tool: toolName, args, timeout }),
     });
 
     if (!response.ok) {
