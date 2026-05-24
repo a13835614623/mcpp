@@ -166,6 +166,61 @@ describe('ConfigManager', () => {
     });
   });
 
+  describe('renameServer', () => {
+    it('should rename an existing server', () => {
+      manager.addServer('old-name', {
+        command: 'node',
+        args: ['--version']
+      });
+
+      manager.renameServer('old-name', 'new-name');
+
+      expect(manager.getServer('old-name')).toBeUndefined();
+      const renamed = manager.getServer('new-name');
+      expect(renamed).toBeDefined();
+      expect((renamed as any).command).toBe('node');
+      expect((renamed as any).args).toEqual(['--version']);
+    });
+
+    it('should preserve key order after rename', () => {
+      manager.addServer('server-a', { command: 'a', args: [] });
+      manager.addServer('server-b', { command: 'b', args: [] });
+      manager.addServer('server-c', { command: 'c', args: [] });
+
+      manager.renameServer('server-b', 'server-b-renamed');
+
+      const servers = manager.listServers();
+      expect(servers.map(s => s.name)).toEqual(['server-a', 'server-b-renamed', 'server-c']);
+    });
+
+    it('should throw error when renaming non-existing server', () => {
+      expect(() => manager.renameServer('non-existing', 'new-name')).toThrow('not found');
+    });
+
+    it('should throw error when new name already exists', () => {
+      manager.addServer('server-1', { command: 'a', args: [] });
+      manager.addServer('server-2', { command: 'b', args: [] });
+
+      expect(() => manager.renameServer('server-1', 'server-2')).toThrow('already exists');
+    });
+
+    it('should preserve all server properties after rename', () => {
+      manager.addServer('full-server', {
+        command: 'node',
+        args: ['--version'],
+        disabled: true
+      });
+
+      manager.renameServer('full-server', 'renamed-server');
+
+      const renamed = manager.getServer('renamed-server');
+      expect(renamed).toBeDefined();
+      expect((renamed as any).command).toBe('node');
+      expect((renamed as any).args).toEqual(['--version']);
+      expect((renamed as any).disabled).toBe(true);
+    });
+  });
+
   describe('updateServer', () => {
     it('should update server configuration', () => {
       manager.addServer('to-update', {

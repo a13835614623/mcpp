@@ -96,6 +96,30 @@ export class ConfigManager {
     this.saveConfig(config);
   }
 
+  renameServer(oldName: string, newName: string) {
+    const config = this.loadConfig();
+    const current = config.mcpServers[oldName];
+    if (!current) {
+      throw new Error(`Server with name "${oldName}" not found.`);
+    }
+    if (config.mcpServers[newName]) {
+      throw new Error(`Server with name "${newName}" already exists.`);
+    }
+
+    // Insert newName in the same position as oldName, preserving key order
+    const newServers: Record<string, ServerConfig> = {};
+    for (const [key, value] of Object.entries(config.mcpServers)) {
+      if (key === oldName) {
+        newServers[newName] = value;
+      } else {
+        newServers[key] = value;
+      }
+    }
+
+    config.mcpServers = newServers;
+    this.saveConfig(config);
+  }
+
   updateServer(name: string, updates: Partial<ServerConfig>) {
     const config = this.loadConfig();
     const current = config.mcpServers[name];

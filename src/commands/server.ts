@@ -159,6 +159,15 @@ export const registerServerCommands = (program: Command) => {
       }
   };
 
+  const renameServerAction = (oldName: string, newName: string) => {
+      try {
+        configManager.renameServer(oldName, newName);
+        console.log(chalk.green(`Server "${oldName}" renamed to "${newName}".`));
+      } catch (error: any) {
+        console.error(chalk.red(error.message));
+      }
+  };
+
   const updateServerAction = async (name: string | undefined, options: any) => {
       // If no server name provided, refresh all connections
       if (!name) {
@@ -225,6 +234,12 @@ export const registerServerCommands = (program: Command) => {
     .description('Remove a server')
     .action(removeServerAction);
 
+  // Rename server command
+  program.command('rename <oldName> <newName>')
+    .alias('mv')
+    .description('Rename a server')
+    .action(renameServerAction);
+
   // Update server command
   program.command('update [name]')
     .description('Update a server configuration or refresh all servers')
@@ -256,6 +271,11 @@ export const registerServerCommands = (program: Command) => {
     .alias('rm')
     .description('Remove a server')
     .action(removeServerAction);
+
+  serverCmd.command('rename <oldName> <newName>')
+    .alias('mv')
+    .description('Rename a server')
+    .action(renameServerAction);
 
   serverCmd.command('update [name]')
     .description('Update a server configuration or refresh all servers')
